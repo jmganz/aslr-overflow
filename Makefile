@@ -2,7 +2,7 @@ CC = cc
 CFLAGS = -Wall -fPIE -pie -fno-stack-protector -O0
 
 #all: address client entropy printHidden server
-all: client server
+all: client server entropy
 
 address: address.c
 client: client.c
