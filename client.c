@@ -170,6 +170,11 @@ int main(int argc, char* argv[]) {
         if (atkStr[count - 1] == 255) {
           if (atkStr[count - 2] == 0) {
             correct++;
+          } else if (atkStr[count - 2] == 255) {
+            if (atkStr[count - 3] == 0) {
+              correct++;
+            }
+            atkStr[count - 3] = atkStr[count - 3] + 1;
           }
           atkStr[count - 2] = atkStr[count - 2] + 1;
         }

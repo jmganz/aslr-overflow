@@ -21,6 +21,7 @@ int i, j, *k, n, count, sockfd, newsockfd, portno = 54321, parent,
 
 void daemonize(void);
 void signalHandler(int signalValue);
+
 /*
 void fluffCodeNegative5(void) {
   int x = 14;
@@ -65,7 +66,6 @@ void fluffCodeNegative2(void) {
   }
   exit(0);
 } // fluffCodeNegative2()
-*/
 
 void fluffCodeNegative1(void) {
   int x = 14;
@@ -77,6 +77,7 @@ void fluffCodeNegative1(void) {
   }
   exit(0);
 } // fluffCodeNegative1()
+*/
 
 void hidden(void) {
   while (printf("\rHow did you get here...?\n") &&
@@ -108,6 +109,7 @@ void fluffCode1(void) {
   exit(0);
 } // fluffCode1()
 
+/*
 void fluffCode2(void) {
   int x = 14;
   int y = 28;
@@ -130,7 +132,6 @@ void fluffCode3(void) {
   exit(0);
 } // fluffCode3()
 
-
 void fluffCode4(void) {
   int x = 14;
   int y = 28;
@@ -141,7 +142,7 @@ void fluffCode4(void) {
   }
   exit(0);
 } // fluffCode4()
-
+*/
 
 int main(void) {
 /*
