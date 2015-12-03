@@ -9,6 +9,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
+// whether to print out debug information
 #define DEBUG 0
 
 socklen_t clilen;
@@ -21,6 +22,8 @@ int i, j, *k, n, count, sockfd, newsockfd, portno = 54321, parent,
 
 void daemonize(void);
 void signalHandler(int signalValue);
+
+// a bunch of unnecessary functions to change the location of hidden()
 
 /*
 void fluffCodeNegative5(void) {
@@ -79,10 +82,15 @@ void fluffCodeNegative1(void) {
 } // fluffCodeNegative1()
 */
 
+// the function to buffer overflow into
+
 void hidden(void) {
   while (printf("\rHow did you get here...?\n") &&
          write(newsockfd, "hidden", 6) < 0);
+  // send a response indicating that hidden() has been reached
 } // hidden()
+
+// buffer overflow vulnerable function
 
 void getstr(void) {
   if (DEBUG) {
@@ -90,13 +98,15 @@ void getstr(void) {
   }
   if (*readInput == 0) {
     exit(-1);
-  }
+  } // this helps prevent more than one forked process from executing
   *readInput = 0;
   unsigned char buf[12];
   for (i = 0; i < count; i++) {
     buf[i] = atkStr[i];
-  }
+  } // no bounds checking
 } // getstr()
+
+// more unnecessary functions to change the location of hidden()
 
 void fluffCode1(void) {
   int x = 14;
@@ -145,6 +155,9 @@ void fluffCode4(void) {
 */
 
 int main(void) {
+
+// a bunch of assembly calls to look at memory addresses
+
 /*
   address = (unsigned int) hidden;
   printf("hidden at [%u][%u][%u][%u]\n", ((address & 0xFF000000) >> 24), ((address & 0x00FF0000) >> 16), ((address & 0x0000FF00) >> 8), (address & 0x000000FF));
@@ -169,6 +182,8 @@ int main(void) {
   loop = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
   readInput = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
+  // open a socket and listen for connections
+
   sockfd = socket(AF_INET, SOCK_STREAM, 0);
   setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
   bzero((char *) &serv_addr, sizeof(serv_addr));
@@ -184,29 +199,28 @@ int main(void) {
   listen(sockfd, 5);
   clilen = sizeof(cli_addr);
   newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
-  signal(SIGTERM, SIG_IGN);
+  signal(SIGTERM, SIG_IGN); // ignore SIGTERM (ctrl+c) to prevent hanging
   *k = 0;
-  parent = getpid();
+  parent = getpid(); // identify the parent process
 
   while (1) {
     if (DEBUG) {
       printf("in while\n");
-    }
-    if (DEBUG) {
       printf("1. pid: %d\n", getpid());
     }
-    ualarm(80000, 0);
+    ualarm(80000, 0); // timeout after 80ms
     if (DEBUG) {
       printf("daemonizing\n");
     }
     *loop = 0;
-    daemonize();
-    waitpid(pid, &status, 0);
+    daemonize(); // for a child process (do not execute)
+    waitpid(pid, &status, 0); // wait for child process to terminate
     if (getpid() == parent) {
       if (DEBUG) {
         printf("daemonize done\n");
       }
       if (*finished == 0) {
+        // send response back to client
         n = write(newsockfd, sendStr, *sendCount);
         if (n < 0) {
           if (DEBUG) {
@@ -222,7 +236,7 @@ int main(void) {
     }
   } // loop forever
   close(newsockfd);
-  close(sockfd);
+  close(sockfd); // close the connection to the client
   if (DEBUG) {
     printf("exiting\n");
   }
@@ -230,49 +244,58 @@ int main(void) {
 } // main()
 
 void signalHandler(int signalValue) {
-  signal(signalValue, SIG_IGN);
+  signal(signalValue, SIG_IGN); // prevent further signal handling
   usleep(800);
   if (DEBUG) {
     printf("signal: %d\n", signalValue);
   }
   if (signalValue == 4) {
+    // prepare response to increment client string
     strcpy((char*) sendStr, "increment");
     *sendCount = 9;
   } // Illegal Instruction
   else if (signalValue == 11) {
     if (*finished == 1) {
+      // prepare response that server finished successfully
       strcpy((char*) sendStr, "finished");
       *sendCount = 8;
     } else {
+      // prepare response to increment client string
       strcpy((char*) sendStr, "increment");
       *sendCount = 9;
     }
   } // Segmentation fault
   else if (signalValue == 13) {
+    // prepare response to increment client string
     strcpy((char*) sendStr, "increment");
     *sendCount = 9;
   } // Broken pipe
   else if (signalValue == 14) {
     if (*finished == 1) {
+      // prepare response that server finished successfully
       strcpy((char*) sendStr, "finished");
       *sendCount = 8;
     } else {
+      // prepare response to increment client string
       strcpy((char*) sendStr, "increment");
       *sendCount = 9;
     }
-    kill(pid, SIGTERM);
+    kill(pid, SIGTERM); // terminate the child process
     if (getpid() != parent) {
+      // tell client to resend previous string
       write(newsockfd, "again", 5);
       if (DEBUG) {
         printf("again sent\n");
       }
-      kill(getpid(), SIGTERM);
+      kill(getpid(), SIGTERM); // terminate the child process
       exit(0);
     } else {
+      // write prepared response to socket within timeout handler
       write(newsockfd, sendStr, *sendCount);
     } // send a message back to the client
   } // Alarm
   if (*finished == 1) {
+    // prepare response that server finished successfully
     strcpy((char*) sendStr, "finished");
     *sendCount = 8;
   }
@@ -286,37 +309,38 @@ void daemonize(void) {
   for (i = 3; i < 32; i++) {
     if (i != 9 && i != 15 && i != 17 && i != 28) {
       signal(i, signalHandler);
-    }
+    } // these particular signals will be handled
+      // by the program's signalHandler()
   } // catch a bunch of signals
 
   if (parent == getpid()) {
     pid = fork();
     return;
-  }
+  } // if the current process is the parent process, fork a child process
   if (pid < 0) {
     if (DEBUG) {
       printf("fork error\n");
     }
     exit(1);
-  }
+  } // terminate if the pid doesn't make sense
   // child (daemon) continues
   
-  bzero(buffer, 256);
+  bzero(buffer, 256); // zero out the buffer
   if (DEBUG) {
     printf("waiting for string\n");
   }
   *readInput = 1;
-  n = read(newsockfd, buffer, 255);
+  n = read(newsockfd, buffer, 255); // get the client string
   for (i = 0; (buffer[i] >= '0') && (buffer[i] <= '9'); i++) {
     countString[i] = buffer[i];
-  }
+  } // determine the number of characters in the string
   count = atoi((char*) countString);
   for (j = 0; j < count; j++) {
     atkStr[j] = buffer[++i];
     if (DEBUG) {
       printf("[%u]", atkStr[j]);
     }
-  }
+  } // copy the client's request to variable atkStr
   if (DEBUG) {
     printf("\n");
   }
@@ -329,7 +353,7 @@ void daemonize(void) {
       if (*k > 3) {
         *k = 0;
       }
-    }
+    } // print a character indicating that progress is being made
   }
   if (DEBUG) {
     printf("getting str\n");
@@ -337,15 +361,16 @@ void daemonize(void) {
   }
   (*loop)++;
   if (*loop > 5) {
-    kill(getpid(), SIGTERM);
+    kill(getpid(), SIGTERM); // terminate the current process
   } // stuck in a loop
-  getstr();
+  getstr(); // use atkStr in buffer overflow vulnerable function
   if (DEBUG) {
     printf("getstr done\n");
   }
   strcpy((char*) sendStr, "finished");
   *sendCount = 8;
-  
+
+  // send response to client indicating that process finished successfully
   n = write(newsockfd, sendStr, *sendCount);
   if (n < 0) {
     if (DEBUG) {
