@@ -1,5 +1,8 @@
 Compile using make all
 
+core file size should always be set to 0 when running server
+ulimit -c 0
+
 First run the vulnerable program: ./server
 Then run the attack program: ./client
 
